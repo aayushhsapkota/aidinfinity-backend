@@ -2,6 +2,8 @@
 
 Express + MongoDB backend for **Aid Infinity Disability Services**, an NDIS provider in New South Wales, Australia. It stores website contact enquiries and powers an AI chat assistant backed by Google Gemini (the API key stays server-side).
 
+Live site: <https://aidinfinityservices.com.au>
+
 ## Features
 
 - **Enquiry API** — accept and persist contact-form submissions in MongoDB.
@@ -35,6 +37,17 @@ npm start
 ```
 
 The server listens on `0.0.0.0:$PORT` and exits if the MongoDB connection fails.
+
+## Deployment
+
+Production runs on an **Amazon EC2** instance:
+
+- **App** — the Express server runs under **pm2** (process name `my-app`), so it survives crashes and reboots (`pm2 save` persists the process list).
+- **Reverse proxy** — **Nginx** sits in front of the app and terminates TLS, with certificates issued by **Let's Encrypt** and managed/auto-renewed by **Certbot**.
+- **Database** — **MongoDB Atlas**. Point `MONGODB_URI` in the server's `.env` at the Atlas connection string.
+- **CI/CD** — pushing to `master` triggers the [`Deploy to EC2`](.github/workflows/deploy.yml) GitHub Action, which SSHes into the instance, runs `git pull`, `npm install`, then `pm2 restart my-app && pm2 save`.
+
+Email sending/receiving and DNS deliverability (SPF, DKIM, DMARC, Cloudflare Email Routing, Brevo SMTP relay) are documented separately in [`docs/email-setup.md`](docs/email-setup.md).
 
 ## API
 
