@@ -1,21 +1,7 @@
-import { GoogleGenAI } from '@google/genai';
 
-export const getChatResponse = async (message, history = []) => {
-  try {
-    // ✅ Move it inside the function so it reads AFTER dotenv loads
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import Anthropic from '@anthropic-ai/sdk';
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-lite',
-      contents: [
-        ...history,
-        {
-          role: 'user',
-          parts: [{ text: message }],
-        },
-      ],
-      config: {
-        systemInstruction: `You are a helpful assistant for "Aid Infinity Disability Services", an NDIS provider in New South Wales (NSW), Australia.
+const SYSTEM_PROMPT = `You are a helpful assistant for "Aid Infinity Disability Services", an NDIS provider in New South Wales (NSW), Australia.
 
 Aid Infinity specialises in clinically-led disability support with Registered Nurses overseeing complex care needs.
 
@@ -49,7 +35,6 @@ Disability Support Services
 • Personal Care & Daily Living Assistance
 • Community Participation & Social Support
 
-
 Our Values:
 • Participant-first approach
 • Respect and dignity
@@ -63,13 +48,50 @@ FORMATTING RULES:
 1. Use **bold text** for our phone number (0402 182 670 / 0452 579 356) and the contact form link.
 2. Use bullet points for lists to make them easier to read.
 3. Avoid long paragraphs; keep responses concise and to the point.
-4. Leave a blank line between paragraphs for better readability (not just a line break).`,
-      },
+4. Leave a blank line between paragraphs for better readability (not just a line break).`;
+
+export const getChatResponse = async (message, history = []) => {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY is missing');
+    }
+
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    return response.text;
+    // Convert Gemini history into Claude message format so that we don'e need to make any
+    // changes while switching from gemini to claude.
+    const messages = history
+      .map(({ role, parts }) => ({
+        role: role === 'model' || role === 'assistant'
+          ? 'assistant'
+          : 'user',
+        content: parts?.map(({ text }) => text ?? '').join('') ?? '',
+      }))
+      .filter(({ content }) => content.trim() !== '');
+
+    // Add the latest user message.
+    messages.push({
+      role: 'user',
+      content: message,
+    });
+
+    const response = await client.messages.create({
+      model: process.env.CLAUDE_MODEL || 'claude-haiku-5-5',
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages,
+    });
+
+    return response.content
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('');
+
   } catch (error) {
-    console.error('Gemini API Error:', error);
+    console.error('Claude API Error:', error);
+
     return "I'm sorry, I'm having trouble connecting right now. Please call us at 0402 182 670 or 0452 579 356 for immediate assistance.";
   }
 };

@@ -4,7 +4,7 @@ dotenv.config();
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import { getChatResponse } from './gemini.js';
+import { getChatResponse } from './claude.js';
 
 async function startServer() {
   const app = express();
